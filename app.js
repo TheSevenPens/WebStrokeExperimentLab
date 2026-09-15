@@ -16,18 +16,16 @@
 // ============================================================
 
 const canvas  = document.getElementById('canvas');
-const toolbar = document.getElementById('toolbar');
-const modeSelect = document.getElementById('mode');
+const sizeSelect = document.getElementById('size');
+const rotationSelect = document.getElementById('rotation');
 const strokeSelect = document.getElementById('stroke');
 const allPointsCheck = document.getElementById('allpoints');
-const fixedPressureCheck = document.getElementById('fixedpressure');
 const edgeSelect = document.getElementById('edge');
 const smoothingSelect = document.getElementById('smoothing');
 
 /// Pressure to draw at when the pen's own is being ignored. Half, so the brush is
 /// mid-width and a stroke has room to look thicker or thinner than it.
-const FIXED_PRESSURE = 0.5;
-const cursorIndicator = document.getElementById('cursor-indicator');
+const FIXED_SIZE = 0.5;
 const ctx = canvas.getContext('2d');
 
 // Three surfaces, not one.
@@ -196,13 +194,17 @@ function backingSize(cssWidth, cssHeight) {
     };
 }
 
-function resizeCanvas() {
-    const cssWidth = Math.max(1, window.innerWidth);
-    const cssHeight = Math.max(1, window.innerHeight - toolbar.offsetHeight);
+// The canvas's own layout box, in CSS pixels. The stylesheet decides it -- the
+// canvas is what is left of a flex row after the settings column, inside what is left
+// of the window after the toolbar -- so this reads the answer rather than working it
+// out again, which is how the two could disagree.
+function layoutSize() {
+    const box = canvas.getBoundingClientRect();
+    return { cssWidth: Math.max(1, box.width), cssHeight: Math.max(1, box.height) };
+}
 
-    // Layout size, in CSS pixels.
-    canvas.style.width = cssWidth + 'px';
-    canvas.style.height = cssHeight + 'px';
+function resizeCanvas() {
+    const { cssWidth, cssHeight } = layoutSize();
 
     const { width, height } = backingSize(cssWidth, cssHeight);
     if (width === applied.width && height === applied.height &&
@@ -228,7 +230,13 @@ function resizeCanvas() {
     clearCanvas();
 }
 
+// Wipes the picture *and* abandons the stroke in progress.
+//
+// Clearing only the pixels left the fitter and the filter holding samples, so releasing
+// the pen after pressing Delete painted the cleared stroke back onto the empty canvas.
 function clearCanvas() {
+    resetStroke();
+
     // The background belongs to the committed picture now, not to the screen: the
     // screen is rebuilt from these two layers every frame and would lose anything
     // painted straight onto it.
@@ -252,14 +260,14 @@ function clearCanvas() {
 
 // ── Drawing ───────────────────────────────────────────────────
 
-// Draw a line from `from` to `to` at one width, taken from the pressure at `to`.
+// Draw a line from `from` to `to` at one width, taken from the size reading at `to`.
 //
 // The width is therefore constant within a segment and changes in a step at every
 // sample boundary, which at tablet report rates is everywhere: the silhouette of a
 // stroke is a staircase rather than a ramp. Kept as a choice because seeing the
 // artefact is half of understanding why the taper below exists.
 function drawSteppedSegment(from, to) {
-    lctx.lineWidth = widthFor(to.pressure);
+    lctx.lineWidth = widthFor(to.size);
     lctx.strokeStyle = 'black';
     lctx.lineCap = 'round';
     lctx.lineJoin = 'round';
@@ -269,10 +277,11 @@ function drawSteppedSegment(from, to) {
     lctx.stroke();
 }
 
-// Brush diameter for one pressure reading. Mouse events report 0.5, so a mouse
-// draws at half size rather than not at all.
-function widthFor(pressure) {
-    return Math.max(1, pressure * MAX_BRUSH_SIZE);
+// Brush diameter for one size reading, which is a number from 0 to 1 from whichever
+// pen property the Size control names. A mouse reports pressure 0.5 while a button is
+// held, so on pressure it draws at half size rather than not at all.
+function widthFor(size) {
+    return Math.max(1, size * MAX_BRUSH_SIZE);
 }
 
 // Fill the outline of two circles and the region swept between them, so the width
@@ -284,14 +293,16 @@ function widthFor(pressure) {
 // the overlaps twice, which is invisible in opaque black and shows as darker
 // lozenges at every sample the moment the ink is translucent.
 //
-// The straight sides are the circles' external tangents: for centres `d` apart with
-// radii `ra` and `rb`, both tangent points lie along the same normal, offset from
-// the centre line by asin((ra - rb) / d). That is what makes the sides meet the
-// round caps smoothly instead of cutting across them.
+// The straight sides are the circles' external tangents. A tangent meets each radius
+// at a right angle, which puts the tangent point at acos((ra - rb) / d) from the
+// centre line -- the normal, turned *back towards the wide end* by
+// asin((ra - rb) / d). Turning it the other way gives a shape that still closes and
+// still looks like a taper, with sides that cut across the caps instead of meeting
+// them, and a crescent of the wide end left unpainted.
 function drawTaperSegment(from, to) {
     const a = from, b = to;
-    const ra = Math.max(widthFor(from.pressure) / 2, 0.01);
-    const rb = Math.max(widthFor(to.pressure) / 2, 0.01);
+    const ra = Math.max(widthFor(from.size) / 2, 0.01);
+    const rb = Math.max(widthFor(to.size) / 2, 0.01);
 
     const dx = b.x - a.x, dy = b.y - a.y;
     const d = Math.hypot(dx, dy);
@@ -311,18 +322,22 @@ function drawTaperSegment(from, to) {
     const phi = Math.atan2(dy, dx);
     const alpha = Math.asin(clamp((ra - rb) / d, -1, 1));
 
-    // The shared normal of the two external tangent lines, one either side of the axis.
-    const up = phi + Math.PI / 2 + alpha;
-    const down = phi - Math.PI / 2 - alpha;
+    // The external tangent points, one either side of the axis. The offset is
+    // subtracted from the normal on both sides, which is what leans the sides in
+    // towards the narrow end.
+    const up = phi + Math.PI / 2 - alpha;
+    const down = phi - Math.PI / 2 + alpha;
 
     lctx.moveTo(a.x + ra * Math.cos(up), a.y + ra * Math.sin(up));
     lctx.lineTo(b.x + rb * Math.cos(up), b.y + rb * Math.sin(up));
 
     // Round the far end, then the near one. Both sweeps run the same way round so the
-    // contour stays simple; together they account for the full turn the caps share.
-    lctx.arc(b.x, b.y, rb, up, up - (Math.PI + 2 * alpha), true);
+    // contour stays simple, and together they account for the full turn the caps
+    // share. The wide end takes the larger share of it, being the end that bulges out
+    // past its own tangent points.
+    lctx.arc(b.x, b.y, rb, up, up - (Math.PI - 2 * alpha), true);
     lctx.lineTo(a.x + ra * Math.cos(down), a.y + ra * Math.sin(down));
-    lctx.arc(a.x, a.y, ra, down, down - (Math.PI - 2 * alpha), true);
+    lctx.arc(a.x, a.y, ra, down, down - (Math.PI + 2 * alpha), true);
 
     lctx.closePath();
     lctx.fill();
@@ -357,24 +372,93 @@ function drawOvalStroke(from, to, brush) {
     invalidate();
 }
 
-// Build the brush spec {rx, ry, rot} for the current oval-brush mode.
-function brushForMode(mode, e) {
-    switch (mode) {
-        case 'azimuth-rotation':
-            return { rx: OVAL_RADIUS_X, ry: OVAL_RADIUS_Y, rot: e.azimuthAngle };
-        case 'altitude-size': {
-            // Upright (altitude = π/2) → circle. Flat (altitude = 0) → elongated.
-            // Azimuth picks the direction the ellipse stretches.
-            const tilt = 1 - Math.min(1, e.altitudeAngle / (Math.PI / 2));
-            const maxRx = OVAL_RADIUS_X * 2;
-            const rx = OVAL_RADIUS_Y + tilt * (maxRx - OVAL_RADIUS_Y);
-            return { rx, ry: OVAL_RADIUS_Y, rot: e.azimuthAngle };
-        }
-        case 'twist-rotation':
-            return { rx: OVAL_RADIUS_X, ry: OVAL_RADIUS_Y, rot: -e.twist * Math.PI / 180 };
+// azimuthAngle and altitudeAngle are newer than the rest of PointerEvent: Safari only
+// grew them in 18.2. Used unconditionally they come out undefined, the readouts show
+// NaN, and the two tilt brushes hand a non-finite angle to canvas and draw nothing at
+// all -- which looks exactly like hardware that is not reporting.
+//
+// Both can be derived from tiltX and tiltY, which every implementation has, so the
+// modes keep working and the numbers stay true rather than being blanked out. The
+// conversion is the one in the Pointer Events specification.
+function azimuthOf(e) {
+    if (typeof e.azimuthAngle === 'number') return e.azimuthAngle;
+
+    const x = radians(e.tiltX ?? 0), y = radians(e.tiltY ?? 0);
+    if (x === 0) return y > 0 ? Math.PI / 2 : (y < 0 ? 3 * Math.PI / 2 : 0);
+    if (y === 0) return x > 0 ? 0 : Math.PI;
+
+    const azimuth = Math.atan2(Math.tan(y), Math.tan(x));
+    return azimuth < 0 ? azimuth + 2 * Math.PI : azimuth;
+}
+
+function altitudeOf(e) {
+    if (typeof e.altitudeAngle === 'number') return e.altitudeAngle;
+
+    const x = radians(e.tiltX ?? 0), y = radians(e.tiltY ?? 0);
+
+    // No tilt reported is an upright pen, which is what the specification's own
+    // default says. Reading it as flat on the tablet would be the opposite.
+    if (x === 0 && y === 0) return Math.PI / 2;
+
+    return Math.atan(1 / Math.hypot(Math.tan(x), Math.tan(y)));
+}
+
+function radians(degrees) {
+    return degrees * Math.PI / 180;
+}
+
+// How big the brush is at this reading: a number from 0 to 1, from whichever pen
+// property the Size control names.
+//
+// Size and rotation are asked separately because they are separate facts about the
+// pen, and bundling them into named modes hid that. Any size can now be tried against
+// any rotation -- pressure against twist, say, which no mode offered.
+function sizeFactor(e) {
+    switch (sizeSelect.value) {
+        case 'altitude':
+            // Upright (altitude = π/2) is small; flat on the tablet is full size.
+            return 1 - Math.min(1, altitudeOf(e) / (Math.PI / 2));
+        case 'fixed':
+            return FIXED_SIZE;
         default:
-            return { rx: OVAL_RADIUS_X, ry: OVAL_RADIUS_Y, rot: 0 };
+            return e.pressure;
     }
+}
+
+// Which way the brush points, in radians.
+function rotationFor(e) {
+    switch (rotationSelect.value) {
+        case 'azimuth':
+            return azimuthOf(e);
+        case 'twist':
+            // Not negated. PointerEvent.twist and the canvas ellipse rotation both
+            // increase in the same direction, so negating it turned the brush the
+            // opposite way from the pen.
+            return radians(e.twist ?? 0);
+        default:
+            return 0;
+    }
+}
+
+// Whether the brush has a direction to show. A round brush rotated is a round brush,
+// so asking for any rotation is what makes the brush an oval -- and an oval is stamped
+// along the path rather than swept as a ribbon, which is why Stroke, Edge and
+// Smoothing go quiet when one is asked for.
+function rotates() {
+    return rotationSelect.value !== 'none';
+}
+
+// The oval brush: the size reading drives the long axis, the short one stays put, and
+// the rotation reading points it.
+//
+// Long axis only, rather than both, because that is what a flattening nib does and
+// what makes a change of angle easy to see. At the fixed size this is the same oval
+// the app has always stamped; at full size it is the same maximum the old Tilt
+// Altitude mode reached.
+function brushFor(e) {
+    const rx = Math.max(OVAL_RADIUS_Y, OVAL_RADIUS_X * sizeFactor(e) / FIXED_SIZE);
+
+    return { rx, ry: OVAL_RADIUS_Y, rot: rotationFor(e) };
 }
 
 
@@ -401,6 +485,13 @@ let streamlined = null;
 
 function resetSmoothing() {
     streamlined = null;
+}
+
+// Put the filter exactly on a position, so the next sample is not dragged back toward
+// where the ink had lagged to. Used when a stroke ends: the last mark belongs at the
+// place the pen was lifted, not one reading short of it.
+function settleSmoothing(sample) {
+    streamlined = { x: sample.x, y: sample.y };
 }
 
 function smooth(sample) {
@@ -550,6 +641,8 @@ function fitCubic(from, to, tangentFrom, tangentTo) {
     const speed2 = length(tangentTo);
     if (speed1 <= 0 || speed2 <= 0) return [to];
 
+    const chord = length({ x: p2.x - p1.x, y: p2.y - p1.y });
+
     const similarity = Math.max(0.5, Math.min(speed1 / speed2, speed2 / speed1));
 
     // Symmetric handles overshoot into a corner, so shorten them as the speeds converge.
@@ -564,22 +657,46 @@ function fitCubic(from, to, tangentFrom, tangentTo) {
         control1 = lerp(p1, target1, reachCoefficient * similarity);
     }
 
+    // A handle may not reach further than the segment it belongs to.
+    //
+    // Everything above decides where the handles point, and has no opinion about how
+    // far. Two nearly parallel tangents meet a very long way off, and the handle
+    // chases that meeting point: input confined to sixty pixels produced ink six
+    // hundred pixels away, and a fractional change to one sample took it to five
+    // thousand. The absolute sanity limit above is far too generous to catch it,
+    // being about a screen's width squared.
+    //
+    // Bounding each handle by the chord puts the whole curve inside the hull of its
+    // own control points, which is the guarantee a cubic is supposed to carry.
+    control1 = within(p1, control1, chord);
+    control2 = within(p2, control2, chord);
+
     const pieces = pieceCount(p1, control1, control2, p2);
     const points = [];
     for (let i = 1; i <= pieces; i++) {
         const t = i / pieces;
         const at = cubic(p1, control1, control2, p2, t);
-        // Pressure blended linearly in the curve parameter rather than in arc
+        // Size blended linearly in the curve parameter rather than in arc
         // length. The two differ only where the handles are very uneven, and by
         // less than the pen's own resolution.
-        at.pressure = from.pressure + (to.pressure - from.pressure) * t;
+        at.size = from.size + (to.size - from.size) * t;
         points.push(at);
     }
     return points;
 }
 
-// Enough pieces that none is longer than FLATTENING_STEP. Measured on the control
-// polygon, which is never shorter than the curve, so this errs toward more pieces.
+// Roughly one piece per FLATTENING_STEP of curve, measured on the control polygon,
+// which is never shorter than the curve itself.
+//
+// Roughly, not exactly: the pieces are cut at equal steps of t, and equal steps of t
+// are not equal lengths. Where both handles bunch at one end the curve covers most of
+// its length in a fraction of the parameter, and the longest piece is several times
+// the step -- control points (0,0), (0,0), (0,0), (100,0) give one of 2.97px at 100
+// pieces. The 200-piece cap loosens it further on a long curve.
+//
+// It does not leave gaps, whatever the spacing: consecutive points are joined by a
+// drawn segment rather than stamped, so a longer piece draws a longer segment of the
+// same ribbon. The step is what keeps the ribbon's edge from visibly faceting.
 function pieceCount(p1, c1, c2, p2) {
     const polygon = length({ x: c1.x - p1.x, y: c1.y - p1.y })
                   + length({ x: c2.x - c1.x, y: c2.y - c1.y })
@@ -596,6 +713,16 @@ function cubic(p1, c1, c2, p2, t) {
         x: a * p1.x + b * c1.x + c * c2.x + d * p2.x,
         y: a * p1.y + b * c1.y + c * c2.y + d * p2.y,
     };
+}
+
+// `point`, pulled back toward `anchor` if it lies further away than `limit`.
+function within(anchor, point, limit) {
+    const dx = point.x - anchor.x, dy = point.y - anchor.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= limit || distance === 0) return point;
+
+    const scale = limit / distance;
+    return { x: anchor.x + dx * scale, y: anchor.y + dy * scale };
 }
 
 function isZero(p) { return p.x === 0 && p.y === 0; }
@@ -657,14 +784,21 @@ function updateInfo(e) {
     infoEls.pressure.textContent = e.pressure.toFixed(3);
     infoEls.tiltX.textContent    = e.tiltX.toFixed(1) + '°';
     infoEls.tiltY.textContent    = e.tiltY.toFixed(1) + '°';
-    infoEls.azimuth.textContent  = toDeg(e.azimuthAngle) + '°';
-    infoEls.altitude.textContent = toDeg(e.altitudeAngle) + '°';
+    infoEls.azimuth.textContent  = toDeg(azimuthOf(e)) + '°';
+    infoEls.altitude.textContent = toDeg(altitudeOf(e)) + '°';
     infoEls.twist.textContent    = e.twist.toFixed(1) + '°';
     infoEls.eraser.textContent   = (e.buttons & ERASER_BUTTON_BIT) ? 'yes' : 'no';
     // Show the buttons bitmask as a 6-bit binary string so all defined
     // pointer buttons (tip, barrel, middle, X1, X2, eraser) are visible.
     infoEls.buttons.textContent  = '0b' + e.buttons.toString(2).padStart(6, '0');
     showRates();
+}
+
+
+// Say that there is nothing to report, rather than leaving the last pointer's values
+// standing as though they were still true.
+function blankInfo() {
+    for (const el of Object.values(infoEls)) el.textContent = '---';
 }
 
 
@@ -785,10 +919,21 @@ const RATE_IDLE_MS = 400;
 
 let rateWindow = [];
 
+// Which pointer the window is measuring. A second device is a second rate.
+let ratePointer = null;
+
 // Record what one move event carried, and how many of those the app acted on.
 function noteSamples(e, used) {
     if (!HAS_COALESCED || typeof e.getCoalescedEvents !== 'function') return;
     if (e.type !== 'pointermove' && e.type !== 'pointerrawupdate') return;
+
+    // A different pointer means a different device reporting at its own speed, and
+    // Type shows only the latest one, so the figure would be labelled with a device
+    // that did not produce most of it.
+    if (ratePointer !== e.pointerId) {
+        rateWindow = [];
+        ratePointer = e.pointerId;
+    }
 
     // An untrusted event has an empty coalesced list by definition, so anything
     // dispatched from script contributes nothing rather than a false zero.
@@ -863,27 +1008,80 @@ let isDrawing = false;
 // positions and need nothing else.
 let lastPos = null;
 
-// Where the ink last reached, for Pressure to Size. Not the same thing as the last
+// Where the ink last reached, for the round brush. Not the same thing as the last
 // sample: what the fitter hands back is a point on the painted path, and there may
 // be many of them between two samples, or none at all.
 let lastDrawn = null;
 
 const fitter = new CurveFitter();
 
-// What the stroke is drawn from. Not what the pen said: with Fixed pressure ticked
-// the width is held constant, which takes pressure out of the picture entirely and
-// leaves position as the only thing that can vary. The Pressure readout is
-// untouched and still reports what the pen actually sent.
+// The size reading of the last sample of *this stroke* that had one. A release reports
+// no pressure at all, and ending a pressure-driven stroke at zero width would undo its
+// final mark rather than finish it.
+//
+// Per stroke, not carried between them. Zero used to mean only "the pen stopped
+// reporting", so any earlier reading was a safe stand-in; now a size can legitimately
+// read zero -- an upright pen on Size from tilt altitude -- and a leftover from the
+// stroke before put a blob of the previous width on the end of a hairline.
+let lastSize = 0;
+
+// Which pointer the stroke in progress belongs to, or null when nothing is drawing.
+//
+// A tablet reports a palm resting on the glass as a second contact, and without an
+// owner that contact is written straight into the same stroke: a pen drawing at one
+// place with a touch arriving at another paints a streak between them, and the palm
+// lifting ends the pen's stroke.
+let activePointerId = null;
+
+// Whether an event concerns the stroke in progress. Anything is welcome when no
+// stroke is running -- that is hovering, and the readouts should follow it.
+function ownsStroke(e) {
+    return activePointerId === null || e.pointerId === activePointerId;
+}
+
+// Whether the pen, mouse or finger is actually touching.
+//
+// Not the same question as "did a pointerdown arrive". A pen's barrel button sends one
+// while the tip is still in the air, and holding that button while lifting the tip
+// sends no pointerup -- so a stroke would begin on a button press and continue after
+// the pen had left the tablet. Contact is the tip, or the eraser end.
+function isContact(e) {
+    return (e.buttons & (1 | ERASER_BUTTON_BIT)) !== 0;
+}
+
+// What the stroke is drawn from. A position, and one number for how big the brush is
+// there -- which is not necessarily what the pen said about pressure, since the Size
+// control decides which reading that number comes from. The readouts are untouched
+// and still report everything the pen actually sent.
 function sampleFrom(e) {
-    return {
-        x: e.offsetX,
-        y: e.offsetY,
-        pressure: fixedPressureCheck.checked ? FIXED_PRESSURE : e.pressure,
-    };
+    const size = sizeFactor(e);
+    if (size > 0) lastSize = size;
+
+    return { x: e.offsetX, y: e.offsetY, size };
+}
+
+// The same, for a release. A released pointer reports no pressure, so a size taken
+// from pressure has to come from the last reading that had one.
+function releaseSample(e) {
+    const size = sizeFactor(e);
+
+    return { x: e.offsetX, y: e.offsetY, size: size > 0 ? size : lastSize };
 }
 
 function isCurved() {
     return strokeSelect.value === 'taper-curved';
+}
+
+// Every position the pen reported since the last frame, rather than the single one
+// the event carries -- when Use all pen points asks for them.
+//
+// An untrusted event has an empty list by definition, so anything dispatched from
+// script falls back to the event itself.
+function positionsIn(e) {
+    if (!usingAllPoints()) return [e];
+
+    const merged = e.getCoalescedEvents();
+    return merged.length > 0 ? merged : [e];
 }
 
 // Draw from wherever the ink last reached to one more point along the path.
@@ -896,114 +1094,209 @@ function drawTo(point) {
     lastDrawn = point;
 }
 
-// Paint whatever the fitter is still holding back, and forget the stroke.
-function endStroke() {
-    for (const point of fitter.flush(isCurved())) drawTo(point);
-    commitStroke();
+// Forget the stroke in progress. Called wherever one can end, which is more places
+// than a pointerup: a release, the pointer leaving, a cancellation, Clear, a change of
+// mode or stroke type, and a resize.
+function resetStroke() {
+    if (activePointerId !== null && canvas.hasPointerCapture?.(activePointerId)) {
+        canvas.releasePointerCapture(activePointerId);
+    }
+    activePointerId = null;
     isDrawing = false;
     lastPos = null;
     lastDrawn = null;
+    lastSize = 0;
     fitter.reset();
     resetSmoothing();
 }
 
+// Keep the ink already laid down and stop the stroke there, for when the settings
+// change under it.
+//
+// Committing rather than discarding, because the half-stroke is ink the user watched
+// appear and has nothing wrong with it. What is dropped is the one segment the fitter
+// is still holding: by the time this runs the new setting is already in force, and
+// that segment would be the only part of the stroke drawn the new way.
+function finishStrokeHere() {
+    if (!isDrawing) return;
 
-// ── Pointer event handlers ────────────────────────────────────
+    commitStroke();
+    resetStroke();
+}
+
+// Mark the point of contact, so that a tap leaves something behind.
+//
+// Without this a press and release with no movement drew nothing at all: the fitter
+// has no segment until a second sample arrives, and the oval modes stamp only between
+// two positions. Tapping is the first thing anyone does to check a pen works.
+function beginStroke(e) {
+    const at = sampleFrom(e);
+
+    if (rotates()) {
+        stampOval(at, brushFor(e));
+    } else {
+        for (const point of fitter.next(smooth(at), isCurved())) drawTo(point);
+
+        if (strokeSelect.value === 'stepped') drawSteppedSegment(at, at);
+        else drawTaperSegment(at, at);
+        invalidate();
+    }
+}
+
+// Finish at the position the pen was actually lifted from, then forget the stroke.
+//
+// The filter lags by a reading and the fitter holds a segment back, so flushing alone
+// leaves the ink short of where the pen left: pressed at 100, moved to 200, released at
+// 220, the last mark landed at 150. Settling the filter onto the release position and
+// feeding it through fixes both lags at once.
+function endStroke(e) {
+    if (isDrawing && e && !rotates() && isFinite(e.offsetX)) {
+        const at = releaseSample(e);
+        settleSmoothing(at);
+        for (const point of fitter.next(at, isCurved())) drawTo(point);
+    }
+
+    for (const point of fitter.flush(isCurved())) drawTo(point);
+    commitStroke();
+    resetStroke();
+}
+
+
+// ── Pointer event handlers ──────────────────────────────────
 
 canvas.addEventListener('pointerdown', (e) => {
-    isDrawing = true;
-    lastPos = sampleFrom(e);
-    lastDrawn = null;
-    fitter.reset();
-    resetSmoothing();
-    for (const point of fitter.next(smooth(sampleFrom(e)), isCurved())) drawTo(point);
+    // A contact arriving while another is already drawing is a palm, a second finger,
+    // or a mouse someone nudged. The stroke keeps the pointer it started with.
+    if (!ownsStroke(e)) return;
+
     updateInfo(e);
+
+    // A barrel button in mid-air also sends a pointerdown. Only contact draws.
+    if (!isContact(e)) return;
+
+    resetStroke();
+    isDrawing = true;
+    activePointerId = e.pointerId;
+
+    // Capture keeps this pointer's events coming to the canvas even when it moves over
+    // the toolbar, which is otherwise a pointerleave: crossing into the toolbar and
+    // back with the tip still down left the stroke dead until the next press.
+    try {
+        canvas.setPointerCapture(e.pointerId);
+    } catch {
+        // No capture available. The stroke still works; it just ends at the edge.
+    }
+
+    lastPos = sampleFrom(e);
+    beginStroke(e);
 });
 
 canvas.addEventListener('pointermove', (e) => {
-    const mode = modeSelect.value;
+    // Before the readouts, not just before the drawing: a palm's pressure and tilt
+    // shown in place of the pen's is the same fault wearing different clothes.
+    if (!ownsStroke(e)) return;
 
-    // Every position the pen reported since the last frame, when asked for and
-    // when there is a stroke to put them in. Null means the ordinary thing: act
-    // on the one position the event carries and discard the rest.
-    let burst = mode === 'pressure-size' && isDrawing && usingAllPoints()
-        ? e.getCoalescedEvents()
-        : null;
-    if (burst && burst.length === 0) burst = null;   // untrusted event
+    const positions = isDrawing ? positionsIn(e) : [e];
 
-    noteSamples(e, burst ? burst.length : 1);
+    // How many of the reported positions the stroke is actually built from. None,
+    // while the pen is only hovering.
+    noteSamples(e, isDrawing ? positions.length : 0);
     updateInfo(e);
-
-    if (mode === 'pointer-only') {
-        // Show a visible cursor at the reported position; never draw.
-        // The indicator stays visible even when the pen is pressing down.
-        showCursorIndicator(e);
-        return;
-    }
-    hideCursorIndicator();
 
     if (!isDrawing) return;
 
-    const pos = sampleFrom(e);
-    if (mode === 'pressure-size') {
-        // Pressure (0–1) scales the brush size, and the Stroke control decides how
-        // the ink between two samples is laid down.
-        for (const sample of burst ? [...burst].map(sampleFrom) : [pos]) {
-            for (const point of fitter.next(smooth(sample), isCurved())) drawTo(point);
-        }
-    } else {
-        drawOvalStroke(lastPos, pos, brushForMode(mode, e));
+    // Contact can end without a pointerup: lifting the tip while the barrel button is
+    // still held sends a move with the button bit and no contact bit.
+    if (!isContact(e)) {
+        endStroke(e);
+        return;
     }
 
-    lastPos = pos;
+    // Every mode draws from the same stream of positions, each with the pressure and
+    // the angles it was reported with. The oval modes used to take the outermost event
+    // alone and span straight to it, so a batch that changed direction inside one
+    // frame lost the corner -- while Points/s counted those positions as used.
+    for (const position of positions) {
+        const at = sampleFrom(position);
+
+        if (rotates()) {
+            drawOvalStroke(lastPos, at, brushFor(position));
+        } else {
+            // A round brush swept along the path, with the Stroke control deciding how
+            // the ink between two samples is laid down.
+            for (const point of fitter.next(smooth(at), isCurved())) drawTo(point);
+        }
+
+        lastPos = at;
+    }
 });
 
-canvas.addEventListener('pointerup', endStroke);
+canvas.addEventListener('pointerup', (e) => {
+    if (!ownsStroke(e)) return;
 
-canvas.addEventListener('pointerleave', () => {
-    endStroke();
-    hideCursorIndicator();
+    endStroke(e);
+
+    // After the release, not before: the panel should report a released pen rather than
+    // keep showing the pressure and buttons of the last moment it was down.
+    updateInfo(e);
+});
+
+canvas.addEventListener('pointercancel', (e) => {
+    if (!ownsStroke(e)) return;
+
+    endStroke(e);
+    updateInfo(e);
+});
+
+// Capture can be taken away rather than given up -- the element going away, or the
+// browser deciding. However it went, the stroke has no owner any more.
+canvas.addEventListener('lostpointercapture', (e) => {
+    if (isDrawing && e.pointerId === activePointerId) endStroke(e);
+});
+
+canvas.addEventListener('pointerleave', (e) => {
+    if (!ownsStroke(e)) return;
+
+    endStroke(e);
+
+    // Nothing is being reported any more, and the last values were about a pointer that
+    // has gone. Dashes are what the panel says before anything has been seen.
+    blankInfo();
 });
 
 
-// ── Cursor indicator (Pointer-only mode) ──────────────────────
-
-function showCursorIndicator(e) {
-    cursorIndicator.style.left = e.clientX + 'px';
-    cursorIndicator.style.top = e.clientY + 'px';
-    cursorIndicator.hidden = false;
+// Changing what the brush is, or how its ink is laid down, partway through a stroke
+// would leave one stroke drawn two ways, which is the one comparison this app cannot
+// make sense of.
+for (const control of [sizeSelect, rotationSelect, strokeSelect]) {
+    control.addEventListener('change', () => {
+        syncControls();
+        finishStrokeHere();
+    });
 }
 
-function hideCursorIndicator() {
-    cursorIndicator.hidden = true;
-}
+// Grey out the controls that would do nothing where they are.
+//
+// Disabled rather than hidden, so a control that has no effect here does not look live
+// -- and so the panel keeps its shape as the settings change. Dimming the label
+// alongside each one is left to CSS, which styles the whole item from its control.
+function syncControls() {
+    // A ribbon of ink: a path to fit, a width to ramp along it, an edge to feather.
+    // Asking for rotation gives a stamped oval instead, which has none of those --
+    // no line width between two samples, no path of its own, and it goes straight
+    // into the picture rather than through the layer the feather is applied to.
+    const ribbon = !rotates();
 
-modeSelect.addEventListener('change', () => {
-    if (modeSelect.value !== 'pointer-only') hideCursorIndicator();
-    syncStrokeControl();
-});
+    strokeSelect.disabled = !ribbon;
+    edgeSelect.disabled = !ribbon;
+    smoothingSelect.disabled = !ribbon;
 
-// The Stroke control decides how the ink between two samples is drawn, and only
-// Pressure to Size draws that kind of ink: the oval modes stamp ellipses, which have
-// no line width to ramp and no path to fit. Disabled rather than hidden, so it does
-// not look live when it would do nothing.
-// Dimming the label alongside it is left to CSS, which styles the whole item from
-// the disabled control.
-function syncStrokeControl() {
-    const drawsStrokes = modeSelect.value === 'pressure-size';
-    strokeSelect.disabled = !drawsStrokes;
-
-    // Nothing to use in a browser that will not hand the extra samples over, and
-    // nowhere to put them in a mode that stamps ovals.
-    allPointsCheck.disabled = !drawsStrokes || !HAS_COALESCED;
-
-    // Only one mode lets pressure near the brush, so only one mode can ignore it.
-    fixedPressureCheck.disabled = !drawsStrokes;
-
-    // The oval modes stamp into the picture directly and have no live layer to
-    // feather, so there is nothing for this to change there.
-    edgeSelect.disabled = !drawsStrokes;
-    smoothingSelect.disabled = !drawsStrokes;
+    // Both brushes use the extra samples, so the only reason to disable this is a
+    // browser that will not hand them over. It starts ticked, so where they cannot be
+    // had the tick has to come off as well -- a box that is checked and greyed out
+    // claims something that is not happening.
+    allPointsCheck.disabled = !HAS_COALESCED;
+    if (!HAS_COALESCED) allPointsCheck.checked = false;
 }
 
 function usingAllPoints() {
@@ -1064,6 +1357,11 @@ window.addEventListener('resize', scheduleResize);
 // factor — which the window resize event alone can miss.
 const resizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
+        // The canvas is the only thing observed, and the only thing whose device-pixel
+        // box means anything here. Guarded anyway, so observing something else later
+        // cannot quietly start sizing the ink by the wrong box.
+        if (entry.target !== canvas) continue;
+
         const box = entry.devicePixelContentBoxSize?.[0];
         if (box) devicePixelBox = { width: box.inlineSize, height: box.blockSize };
     }
@@ -1077,13 +1375,30 @@ try {
     resizeObserver.observe(canvas);
 }
 
-// Delete or Backspace clears the canvas
+// Delete or Backspace clears the canvas -- unless the key is meant for something else.
+//
+// It was bound on the document with no conditions, so Backspace with the About dialog
+// open wiped the drawing behind it, and so did Delete while a dropdown had the focus.
+// Both keys have their own meaning in a control, and a dialog owns the keyboard while
+// it is open.
+//
+// A focused button is deliberately not excluded: it has no use for either key, and
+// excluding it would stop the shortcut working right after a click on Clear or About.
+const KEYS_MEAN_SOMETHING_ELSE = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
+
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        clearCanvas();
-    }
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+    if (document.querySelector('dialog[open]')) return;
+    if (document.activeElement?.matches(KEYS_MEAN_SOMETHING_ELSE)) return;
+
+    e.preventDefault();
+    clearCanvas();
 });
 
-syncStrokeControl();
+// A pen's barrel button raises the context menu, which over the canvas means it appears
+// in the middle of a stroke. Suppressed there and nowhere else: on the rest of the page,
+// including the About dialog's links, right-click should do what it always does.
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+syncControls();
 resizeCanvas();

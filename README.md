@@ -22,11 +22,14 @@ Every stage is a control, so any two of them can be compared on the same hand mo
 
 | | |
 |---|---|
-| **Stroke** | `Stepped width` / `Taper (straight)` / `Taper (curved)` |
+| **Size** | which reading decides how big the brush is: `pressure` / `tilt altitude` / `fixed` |
+| **Rotation** | which reading decides which way it points: `none` / `tilt azimuth` / `twist`. Anything but none makes the brush an oval |
+| **Stroke** | `Stepped width` / `Taper (straight)` / `Taper (curved)`, which is the default |
 | **Edge** | `Hard` / `Soft` |
 | **Smoothing** | `Off` / `Light` / `Heavy` — streamlining, at perfect-freehand's and atrament's defaults |
-| **Fixed pressure** | hold the width constant, to take pressure out of a question |
-| **Use all pen points** | draw from every reported position rather than one per screen refresh |
+| **Use all pen points** | draw from every reported position rather than one per screen refresh. On by default; untick it for what an ordinary web page draws |
+
+Size and rotation are asked separately because they are separate facts about the pen. They used to be bundled into named modes — *Pressure to Size*, *Twist to Brush rotation* — which made every combination nobody had thought to name unavailable.
 
 ## What has been established here
 
@@ -44,3 +47,5 @@ Open `index.html` in a browser. No build step, no dependencies, no webserver nee
 ## Scope
 
 The opposite of the tester's. A control earns its place here if it makes a stage of drawing comparable against another; complexity is the point rather than the cost. Anything learned that the tester should benefit from goes there as fixed behaviour with no setting attached.
+
+Traffic runs the other way too. Both apps grew from the same source, so a defect found in one is usually in the other: the fourteen from the tester's review ([TheSevenPens/WebTabletTesterBasic#9](https://github.com/TheSevenPens/WebTabletTesterBasic/issues/9)) were all here as well, and are fixed. A fix crosses over where it is about the pen being reported honestly; a *setting* does not cross over in either direction.
