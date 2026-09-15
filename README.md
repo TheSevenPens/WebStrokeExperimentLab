@@ -22,11 +22,15 @@ Every stage is a control, so any two of them can be compared on the same hand mo
 
 | | |
 |---|---|
+| **Size** | which reading decides how big the brush is: `pressure` / `tilt altitude` / `fixed` |
+| **Rotation** | which reading decides which way it points: `none` / `tilt azimuth` / `twist`. Anything but none makes the brush an oval |
 | **Stroke** | `Stepped width` / `Taper (straight)` / `Taper (curved)`, which is the default |
 | **Edge** | `Hard` / `Soft` |
 | **Smoothing** | `Off` / `Light` / `Heavy` — streamlining, at perfect-freehand's and atrament's defaults |
-| **Fixed pressure** | hold the width constant, to take pressure out of a question |
-| **Use all pen points** | draw from every reported position rather than one per screen refresh, in every drawing mode. On by default; untick it for what an ordinary web page draws |
+| **Use all pen points** | draw from every reported position rather than one per screen refresh. On by default; untick it for what an ordinary web page draws |
+| **Pointer only** | follow the pointer, draw nothing |
+
+Size and rotation are asked separately because they are separate facts about the pen. They used to be bundled into named modes — *Pressure to Size*, *Twist to Brush rotation* — which made every combination nobody had thought to name unavailable.
 
 ## What has been established here
 

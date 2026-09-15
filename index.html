@@ -71,17 +71,22 @@
      the top of the window does not invite. -->
 <div id="main">
     <div id="stroke-panel">
-        <span class="control-item">Mode:
-            <select id="mode">
-                <option value="pressure-size">Pressure to Size</option>
-                <option value="azimuth-rotation">Tilt Azimuth to Brush rotation</option>
-                <option value="altitude-size">Tilt Altitude to Brush size</option>
-                <option value="twist-rotation">Twist to Brush rotation</option>
-                <option value="pointer-only">Pointer only (no drawing)</option>
+        <span class="control-item" id="size-item">Size:
+            <select id="size" title="Which pen reading decides how big the brush is.">
+                <option value="pressure" selected>Size from pressure</option>
+                <option value="altitude">Size from tilt altitude</option>
+                <option value="fixed">Fixed size</option>
+            </select>
+        </span>
+        <span class="control-item" id="rotation-item">Rotation:
+            <select id="rotation" title="Which pen reading decides which way the brush points. Anything but None makes the brush an oval, because a round brush has no direction to show.">
+                <option value="none" selected>No brush rotation</option>
+                <option value="azimuth">Brush rotation from tilt azimuth</option>
+                <option value="twist">Brush rotation from twist</option>
             </select>
         </span>
         <span class="control-item" id="stroke-item">Stroke:
-            <select id="stroke" title="How the ink between two pen samples is drawn. Pressure to Size only.">
+            <select id="stroke" title="How the ink between two pen samples is drawn. Only a round brush draws that kind of ink, so this does nothing while a rotation is asked for.">
                 <option value="stepped">Stepped width</option>
                 <option value="taper-straight">Taper (straight)</option>
                 <option value="taper-curved" selected>Taper (curved)</option>
@@ -100,13 +105,13 @@
                 <option value="heavy">Heavy</option>
             </select>
         </span>
-        <label class="control-item" id="fixedpressure-item"
-               title="Draw as though the pen were pressed at a constant half pressure. The Pressure readout still shows what the pen actually reports; only the stroke ignores it. Use this to see what a stroke looks like with pressure taken out of the picture.">
-            <input type="checkbox" id="fixedpressure"> Fixed pressure
-        </label>
         <label class="control-item" id="allpoints-item"
                title="Draw from every position the pen reported, not just the one per screen refresh the browser hands over on its own. On by default here; untick it to see what an ordinary web page draws, and watch the two Points/s numbers separate.">
             <input type="checkbox" id="allpoints" checked> Use all pen points
+        </label>
+        <label class="control-item" id="pointeronly-item"
+               title="Follow the pointer with a crosshair and draw nothing. The crosshair stays visible while the pen is down, when the system cursor would normally disappear. Use it to watch tracking and latency, or to confirm events are arriving at all, without covering the canvas in ink.">
+            <input type="checkbox" id="pointeronly"> Pointer only (no drawing)
         </label>
     </div>
 

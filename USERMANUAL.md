@@ -13,14 +13,14 @@ It is **not** a drawing app — there are no colors, brushes or layers. The stro
 1. Open the [live app](https://thesevenpens.github.io/WebStrokeExperimentLab/).
 2. Draw on the blue canvas with your pen, finger, or mouse.
 3. Watch the toolbar readouts update as you draw — they show the raw values the browser is reporting for the current pointer event.
-4. Use the **Mode** dropdown to switch which pen property drives the brush (see [Testing modes](#testing-modes) below).
+4. Use the **Size** and **Rotation** dropdowns to choose which pen readings drive the brush (see [What drives the brush](#what-drives-the-brush) below).
 5. Press **Clear**, or **Delete** / **Backspace**, to clear the canvas.
 
 ## Controls reference
 
 The window is in three parts. **Across the top**: Clear, Export, About, and under them the
 readouts. **Down the left**, beside the canvas: the settings that decide how a stroke is drawn --
-Mode, Stroke, Edge, Smoothing, Fixed pressure and Use all pen points. **The rest** is the canvas.
+Size, Rotation, Stroke, Edge, Smoothing, Use all pen points and Pointer only. **The rest** is the canvas.
 
 The settings sit beside the ink rather than above it because that is how they are used: read down
 a list, changed one at a time, compared between strokes. The readouts are on their own row for the
@@ -31,12 +31,13 @@ values change width.
 | --- | --- |
 | **Clear** | Wipes the canvas. |
 | **Export…** | Save the current canvas as a PNG file, or copy it to the clipboard as an image (paste into chat, an image editor, etc.). The image is captured at your display's full pixel resolution, so stroke detail survives zooming in. Useful for sharing what your pen is producing when reporting a driver issue. |
-| **Mode** | Picks which pen input drives the brush — see below. |
-| **Smoothing** | Filters the positions before they are drawn, as every web drawing library does by default — see [Why slow strokes look rough](#why-slow-strokes-look-rough). Pressure to Size only. |
-| **Edge** | Whether the boundary of a stroke is crisp or feathered — see [Why slow strokes look rough](#why-slow-strokes-look-rough). Pressure to Size only. |
-| **Fixed pressure** | Draw as though the pen were held at a constant half pressure. The Pressure readout still shows what the pen reports; only the stroke ignores it. Pressure to Size only. |
-| **Use all pen points** | Draw from every position the pen reported, instead of the one per screen refresh a browser hands over on its own — see [Report rate](#report-rate). On by default, in every drawing mode, where the browser can supply them. |
-| **Stroke** | How the ink between two pen samples is drawn — see [Stroke rendering](#stroke-rendering). Only **Pressure to Size** draws that kind of ink, so the control is disabled in the other modes. |
+| **Size** | Which pen reading decides how big the brush is — see [What drives the brush](#what-drives-the-brush). |
+| **Rotation** | Which pen reading decides which way the brush points, and whether it is round or an oval — see [What drives the brush](#what-drives-the-brush). |
+| **Smoothing** | Filters the positions before they are drawn, as every web drawing library does by default — see [Why slow strokes look rough](#why-slow-strokes-look-rough). Round brush only. |
+| **Edge** | Whether the boundary of a stroke is crisp or feathered — see [Why slow strokes look rough](#why-slow-strokes-look-rough). Round brush only. |
+| **Use all pen points** | Draw from every position the pen reported, instead of the one per screen refresh a browser hands over on its own — see [Report rate](#report-rate). On by default, whatever the brush, where the browser can supply them. |
+| **Stroke** | How the ink between two pen samples is drawn — see [Stroke rendering](#stroke-rendering). Round brush only. |
+| **Pointer only (no drawing)** | Shows a red crosshair that follows the reported pointer position and leaves no ink. The crosshair stays visible even while the pen is pressing down, when the system cursor would normally disappear. *Use it to check pointer tracking and latency, or to confirm events are arriving at all, without covering the canvas.* |
 | **Type** | `pen`, `mouse`, or `touch` — what the browser thinks the input device is. |
 | **X, Y** | Where the pointer is, in CSS pixels, relative to the window. Always to two decimals — see [Position precision](#position-precision). |
 | **Precision** | Which grid those positions land on: `CSS pixels`, `screen pixels`, or `sub-pixel` — see [Position precision](#position-precision). |
@@ -53,25 +54,51 @@ values change width.
 
 If a value stays at `0` or `---` while you draw, your pen or driver isn't reporting that property.
 
-## Testing modes
+## What drives the brush
 
-The **Mode** dropdown selects which pen property drives the brush. Each mode is meant to isolate one input so a behavior problem can be narrowed down quickly.
+A brush has a size and a direction, and the pen reports several things that could decide either.
+**Size** and **Rotation** ask those two questions separately, so any answer to one can be tried
+against any answer to the other.
 
-- **Pressure to Size** — Circular brush. Stroke width scales with pressure. *Use this to verify pressure sensitivity is working.* A mouse reports 0.5 while a button is held, so it draws a mid-width stroke.
-- **Tilt Azimuth to Brush rotation** — Fixed elongated oval brush, rotated to match the pen's compass-direction tilt. *Use this to verify azimuth reporting.* The oval should rotate as you lean the pen in different directions.
-- **Tilt Altitude to Brush size** — Oval brush whose long axis grows as the pen tilts away from upright. Upright pen → small circle; pen flat on the tablet → very elongated oval. Rotation comes from azimuth, so the oval stretches in the direction the pen is leaning. *Use this to verify altitude reporting.*
-- **Twist to Brush rotation** — Fixed elongated oval brush, rotated by the pen's barrel twist. *Use this to verify twist reporting* — only meaningful on pens that report twist (e.g. some Wacom Art Pens). Most pens report twist as `0`.
-- **Pointer only (no drawing)** — Shows a red crosshair that follows the reported pointer position, with no strokes left behind. The crosshair stays visible even while the pen is pressing down (when the OS would normally hide the system cursor). *Use this to check pointer tracking accuracy and latency, or to confirm the browser is receiving events at all, without cluttering the canvas.*
+**Size** — how big the brush is, as a number from 0 to 1:
 
-The rotation modes deliberately use a very elongated oval so that small changes in the driving angle are visible.
+- **Size from pressure** — press harder, draw wider. *Use this to verify pressure sensitivity.* A
+  mouse reports 0.5 while a button is held, so it draws a mid-width stroke.
+- **Size from tilt altitude** — upright is smallest, flat on the tablet is largest. *Use this to
+  verify altitude reporting.* Held upright the brush is at its minimum and the stroke is a hairline;
+  that is the reading, not a fault.
+- **Fixed size** — half size, whatever the pen says. *Use this to take size out of a question
+  entirely*, which is how you tell a shape problem from a pressure problem.
+
+**Rotation** — which way the brush points:
+
+- **No brush rotation** — a round brush, swept along the path as a continuous ribbon. This is the
+  only setting where **Stroke**, **Edge** and **Smoothing** mean anything, because it is the only
+  one that draws a ribbon; the others stamp.
+- **Brush rotation from tilt azimuth** — an oval pointed in the pen's compass direction. *Use this
+  to verify azimuth reporting.* The oval should turn as you lean the pen in different directions.
+- **Brush rotation from twist** — an oval turned by the pen's barrel twist. *Use this to verify
+  twist reporting* — only meaningful on pens that report it (some Wacom Art Pens). Most pens report
+  twist as `0`.
+
+Asking for any rotation is what makes the brush an oval: a round brush turned is a round brush, so
+there would be nothing to see. The oval is deliberately long and thin so that a small change in the
+driving angle is obvious, and **Size** drives its long axis while the short one stays put — which is
+what a flattening nib does, and what makes the angle easy to read.
+
+**The combinations are the point.** *Fixed size* with *rotation from twist* is the old Twist to
+Brush rotation mode; *size from tilt altitude* with *rotation from tilt azimuth* is the old Tilt
+Altitude to Brush size. But *size from pressure* with *rotation from twist* was not available at all
+before, and it is the quickest way to see two readings at once.
 
 ## Stroke rendering
 
 A pen reports samples, not a stroke. The **Stroke** dropdown picks what is drawn *between* two
 samples, which is where a surprising amount of what a stroke looks like is decided. It applies to
-**Pressure to Size**; the oval modes stamp ellipses and have no line width to ramp or path to fit.
+the round brush; ask for a rotation and the brush is stamped as an oval, which has no line width to
+ramp and no path of its own to fit.
 
-- **Stepped width** — one width for the whole segment, taken from the pressure at its far end.
+- **Stepped width** — one width for the whole segment, taken from the size reading at its far end.
   Width therefore changes in a step at every sample rather than along the segment, and the edge of
   a stroke is a staircase. At tablet report rates that is everywhere. *This is what naive canvas
   code does, and it is here to be looked at rather than used.*
@@ -182,8 +209,8 @@ grid points.
 
 ## Taking pressure out of the picture
 
-**Fixed pressure** holds the brush at one width for the whole stroke, so nothing the pen says about
-pressure reaches the ink. Position becomes the only thing that can vary.
+**Size: Fixed size** holds the brush at one width for the whole stroke, so nothing the pen says
+about pressure reaches the ink. Position becomes the only thing that can vary.
 
 It is a way of splitting a question in two. If a stroke looks rough and you want to know why, draw
 it again with this ticked:
@@ -254,7 +281,7 @@ better instrument; this is the one the web actually ships.
 - **Brush size.** Width is pressure times the maximum size, so a wide brush magnifies everything.
 
 **And two things that are not involved at all,** both ruled out by experiment: pressure — hold it
-constant with **Fixed pressure** and a slow stroke is still rough — and the choice of **Stroke**
+constant with **Fixed size** and a slow stroke is still rough — and the choice of **Stroke**
 rendering, since stepped, straight and curved all trace the same snapped path.
 
 ## OS & browser compatibility
