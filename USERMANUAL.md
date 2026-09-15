@@ -30,7 +30,7 @@ moving under the pointer as values change width.
 | **Smoothing** | Filters the positions before they are drawn, as every web drawing library does by default — see [Why slow strokes look rough](#why-slow-strokes-look-rough). Pressure to Size only. |
 | **Edge** | Whether the boundary of a stroke is crisp or feathered — see [Why slow strokes look rough](#why-slow-strokes-look-rough). Pressure to Size only. |
 | **Fixed pressure** | Draw as though the pen were held at a constant half pressure. The Pressure readout still shows what the pen reports; only the stroke ignores it. Pressure to Size only. |
-| **Use all pen points** | Draw from every position the pen reported, instead of the one per screen refresh a browser hands over on its own — see [Report rate](#report-rate). Pressure to Size only, and only where the browser can supply them. |
+| **Use all pen points** | Draw from every position the pen reported, instead of the one per screen refresh a browser hands over on its own — see [Report rate](#report-rate). On by default, in every drawing mode, where the browser can supply them. |
 | **Stroke** | How the ink between two pen samples is drawn — see [Stroke rendering](#stroke-rendering). Only **Pressure to Size** draws that kind of ink, so the control is disabled in the other modes. |
 | **Type** | `pen`, `mouse`, or `touch` — what the browser thinks the input device is. |
 | **X, Y** | Where the pointer is, in CSS pixels, relative to the window. Always to two decimals — see [Position precision](#position-precision). |
@@ -77,7 +77,9 @@ samples, which is where a surprising amount of what a stroke looks like is decid
   between chords are plainly visible, and you can count the report rate off them.
 - **Taper (curved)** — the same taper, with a cubic fitted through the samples instead of chords.
   The corners go away. *Use this to see how much of a stroke's shape is interpolation rather than
-  measurement.*
+  measurement.* **This is what the app opens with**, alongside **Use all pen points**: between them
+  they are the closest this app comes to what good drawing software does, which makes them the
+  useful thing to compare the other settings against.
 
 The difference between the two taper options is entirely about the path, and it grows with the gap
 between samples: a slow stroke on a high-reporting tablet looks the same either way, and a fast one
@@ -129,16 +131,17 @@ stroke that no application ever saw: a change of direction, a moment of pressure
 fitting a curve through the positions it did get, which is what most drawing software does. It is a
 good guess, not the real thing.
 
-**Use all pen points** stops discarding them. Tick it and **used** climbs to meet **pen**, because
-the stroke is now built from every reading the browser had rather than one per screen refresh. The
-box is off by default deliberately: the default is what an ordinary web page does, and the point of
-this tool is to show you that first.
+**Use all pen points** stops discarding them, and it is on when the app opens: **used** sits close
+to **pen**, because the stroke is built from every reading the browser had rather than one per
+screen refresh.
 
-Two things are worth watching when you turn it on. The stroke follows your hand more closely,
-most visibly on anything drawn quickly — slow strokes look the same either way, because the samples
-were already close together. And the difference between **Taper (straight)** and **Taper (curved)**
-very nearly disappears, because the gaps the curve was there to bridge are now a few pixels wide.
-That is the clearest demonstration in the app of what interpolation is for.
+**Untick it to see what an ordinary web page draws.** **used** drops to one per screen refresh,
+where almost everything else on the web sits, and the two numbers separate. Two things are worth
+watching as they do. The stroke stops following your hand as closely, most visibly on anything
+drawn quickly — slow strokes look much the same either way, because the samples were already close
+together. And the difference between **Taper (straight)** and **Taper (curved)** opens up, because
+the gaps the curve is there to bridge are suddenly wide. That is the clearest demonstration in the
+app of what interpolation is for.
 
 It costs nothing in lag. The extra positions arrived in the same event as the one you were already
 being given; they were simply going unopened.

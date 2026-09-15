@@ -22,11 +22,11 @@ Every stage is a control, so any two of them can be compared on the same hand mo
 
 | | |
 |---|---|
-| **Stroke** | `Stepped width` / `Taper (straight)` / `Taper (curved)` |
+| **Stroke** | `Stepped width` / `Taper (straight)` / `Taper (curved)`, which is the default |
 | **Edge** | `Hard` / `Soft` |
 | **Smoothing** | `Off` / `Light` / `Heavy` — streamlining, at perfect-freehand's and atrament's defaults |
 | **Fixed pressure** | hold the width constant, to take pressure out of a question |
-| **Use all pen points** | draw from every reported position rather than one per screen refresh, in every drawing mode |
+| **Use all pen points** | draw from every reported position rather than one per screen refresh, in every drawing mode. On by default; untick it for what an ordinary web page draws |
 
 ## What has been established here
 

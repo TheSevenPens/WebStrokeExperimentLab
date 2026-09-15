@@ -1275,8 +1275,11 @@ function syncStrokeControl() {
     strokeSelect.disabled = !drawsStrokes;
 
     // Every drawing mode uses the extra samples now, so the only reason to disable
-    // this is a browser that will not hand them over.
+    // this is a browser that will not hand them over. It starts ticked, so where they
+    // cannot be had the tick has to come off as well -- a box that is checked and
+    // greyed out claims something that is not happening.
     allPointsCheck.disabled = !HAS_COALESCED;
+    if (!HAS_COALESCED) allPointsCheck.checked = false;
 
     // Only one mode lets pressure near the brush, so only one mode can ignore it.
     fixedPressureCheck.disabled = !drawsStrokes;
