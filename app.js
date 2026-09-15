@@ -20,14 +20,12 @@ const sizeSelect = document.getElementById('size');
 const rotationSelect = document.getElementById('rotation');
 const strokeSelect = document.getElementById('stroke');
 const allPointsCheck = document.getElementById('allpoints');
-const pointerOnlyCheck = document.getElementById('pointeronly');
 const edgeSelect = document.getElementById('edge');
 const smoothingSelect = document.getElementById('smoothing');
 
 /// Pressure to draw at when the pen's own is being ignored. Half, so the brush is
 /// mid-width and a stroke has room to look thicker or thinner than it.
 const FIXED_SIZE = 0.5;
-const cursorIndicator = document.getElementById('cursor-indicator');
 const ctx = canvas.getContext('2d');
 
 // Three surfaces, not one.
@@ -1173,8 +1171,6 @@ canvas.addEventListener('pointerdown', (e) => {
 
     updateInfo(e);
 
-    if (pointerOnlyCheck.checked) return;
-
     // A barrel button in mid-air also sends a pointerdown. Only contact draws.
     if (!isContact(e)) return;
 
@@ -1200,21 +1196,12 @@ canvas.addEventListener('pointermove', (e) => {
     // shown in place of the pen's is the same fault wearing different clothes.
     if (!ownsStroke(e)) return;
 
-    const drawing = isDrawing && !pointerOnlyCheck.checked;
-    const positions = drawing ? positionsIn(e) : [e];
+    const positions = isDrawing ? positionsIn(e) : [e];
 
     // How many of the reported positions the stroke is actually built from. None,
-    // while nothing is being drawn.
-    noteSamples(e, drawing ? positions.length : 0);
+    // while the pen is only hovering.
+    noteSamples(e, isDrawing ? positions.length : 0);
     updateInfo(e);
-
-    if (pointerOnlyCheck.checked) {
-        // Show a visible cursor at the reported position; never draw.
-        // The indicator stays visible even when the pen is pressing down.
-        showCursorIndicator(e);
-        return;
-    }
-    hideCursorIndicator();
 
     if (!isDrawing) return;
 
@@ -1271,31 +1258,12 @@ canvas.addEventListener('pointerleave', (e) => {
     if (!ownsStroke(e)) return;
 
     endStroke(e);
-    hideCursorIndicator();
 
     // Nothing is being reported any more, and the last values were about a pointer that
     // has gone. Dashes are what the panel says before anything has been seen.
     blankInfo();
 });
 
-
-// ── Cursor indicator (Pointer-only mode) ──────────────────────
-
-function showCursorIndicator(e) {
-    cursorIndicator.style.left = e.clientX + 'px';
-    cursorIndicator.style.top = e.clientY + 'px';
-    cursorIndicator.hidden = false;
-}
-
-function hideCursorIndicator() {
-    cursorIndicator.hidden = true;
-}
-
-pointerOnlyCheck.addEventListener('change', () => {
-    if (!pointerOnlyCheck.checked) hideCursorIndicator();
-    syncControls();
-    finishStrokeHere();
-});
 
 // Changing what the brush is, or how its ink is laid down, partway through a stroke
 // would leave one stroke drawn two ways, which is the one comparison this app cannot
@@ -1313,26 +1281,21 @@ for (const control of [sizeSelect, rotationSelect, strokeSelect]) {
 // -- and so the panel keeps its shape as the settings change. Dimming the label
 // alongside each one is left to CSS, which styles the whole item from its control.
 function syncControls() {
-    const drawing = !pointerOnlyCheck.checked;
-
     // A ribbon of ink: a path to fit, a width to ramp along it, an edge to feather.
     // Asking for rotation gives a stamped oval instead, which has none of those --
     // no line width between two samples, no path of its own, and it goes straight
     // into the picture rather than through the layer the feather is applied to.
-    const ribbon = drawing && !rotates();
-
-    sizeSelect.disabled = !drawing;
-    rotationSelect.disabled = !drawing;
+    const ribbon = !rotates();
 
     strokeSelect.disabled = !ribbon;
     edgeSelect.disabled = !ribbon;
     smoothingSelect.disabled = !ribbon;
 
-    // Every drawing mode uses the extra samples, so the reasons to disable this are a
-    // browser that will not hand them over, and nothing being drawn. It starts ticked,
-    // so where they cannot be had the tick has to come off as well -- a box that is
-    // checked and greyed out claims something that is not happening.
-    allPointsCheck.disabled = !drawing || !HAS_COALESCED;
+    // Both brushes use the extra samples, so the only reason to disable this is a
+    // browser that will not hand them over. It starts ticked, so where they cannot be
+    // had the tick has to come off as well -- a box that is checked and greyed out
+    // claims something that is not happening.
+    allPointsCheck.disabled = !HAS_COALESCED;
     if (!HAS_COALESCED) allPointsCheck.checked = false;
 }
 

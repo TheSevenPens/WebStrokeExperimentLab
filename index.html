@@ -109,24 +109,10 @@
                title="Draw from every position the pen reported, not just the one per screen refresh the browser hands over on its own. On by default here; untick it to see what an ordinary web page draws, and watch the two Points/s numbers separate.">
             <input type="checkbox" id="allpoints" checked> Use all pen points
         </label>
-        <label class="control-item" id="pointeronly-item"
-               title="Follow the pointer with a crosshair and draw nothing. The crosshair stays visible while the pen is down, when the system cursor would normally disappear. Use it to watch tracking and latency, or to confirm events are arriving at all, without covering the canvas in ink.">
-            <input type="checkbox" id="pointeronly"> Pointer only (no drawing)
-        </label>
     </div>
 
     <canvas id="canvas"></canvas>
 </div>
-<svg id="cursor-indicator" hidden width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-    <g stroke="#d12d2d" stroke-width="2" fill="none">
-        <line x1="0"  y1="16" x2="12" y2="16"/>
-        <line x1="20" y1="16" x2="32" y2="16"/>
-        <line x1="16" y1="0"  x2="16" y2="12"/>
-        <line x1="16" y1="20" x2="16" y2="32"/>
-    </g>
-    <circle cx="16" cy="16" r="1.5" fill="#d12d2d"/>
-</svg>
-
 <script src="app.js"></script>
 </body>
 </html>

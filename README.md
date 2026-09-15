@@ -28,7 +28,6 @@ Every stage is a control, so any two of them can be compared on the same hand mo
 | **Edge** | `Hard` / `Soft` |
 | **Smoothing** | `Off` / `Light` / `Heavy` — streamlining, at perfect-freehand's and atrament's defaults |
 | **Use all pen points** | draw from every reported position rather than one per screen refresh. On by default; untick it for what an ordinary web page draws |
-| **Pointer only** | follow the pointer, draw nothing |
 
 Size and rotation are asked separately because they are separate facts about the pen. They used to be bundled into named modes — *Pressure to Size*, *Twist to Brush rotation* — which made every combination nobody had thought to name unavailable.
 

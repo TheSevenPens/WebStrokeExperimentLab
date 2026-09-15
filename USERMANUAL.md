@@ -20,7 +20,7 @@ It is **not** a drawing app — there are no colors, brushes or layers. The stro
 
 The window is in three parts. **Across the top**: Clear, Export, About, and under them the
 readouts. **Down the left**, beside the canvas: the settings that decide how a stroke is drawn --
-Size, Rotation, Stroke, Edge, Smoothing, Use all pen points and Pointer only. **The rest** is the canvas.
+Size, Rotation, Stroke, Edge, Smoothing and Use all pen points. **The rest** is the canvas.
 
 The settings sit beside the ink rather than above it because that is how they are used: read down
 a list, changed one at a time, compared between strokes. The readouts are on their own row for the
@@ -37,7 +37,6 @@ values change width.
 | **Edge** | Whether the boundary of a stroke is crisp or feathered — see [Why slow strokes look rough](#why-slow-strokes-look-rough). Round brush only. |
 | **Use all pen points** | Draw from every position the pen reported, instead of the one per screen refresh a browser hands over on its own — see [Report rate](#report-rate). On by default, whatever the brush, where the browser can supply them. |
 | **Stroke** | How the ink between two pen samples is drawn — see [Stroke rendering](#stroke-rendering). Round brush only. |
-| **Pointer only (no drawing)** | Shows a red crosshair that follows the reported pointer position and leaves no ink. The crosshair stays visible even while the pen is pressing down, when the system cursor would normally disappear. *Use it to check pointer tracking and latency, or to confirm events are arriving at all, without covering the canvas.* |
 | **Type** | `pen`, `mouse`, or `touch` — what the browser thinks the input device is. |
 | **X, Y** | Where the pointer is, in CSS pixels, relative to the window. Always to two decimals — see [Position precision](#position-precision). |
 | **Precision** | Which grid those positions land on: `CSS pixels`, `screen pixels`, or `sub-pixel` — see [Position precision](#position-precision). |
