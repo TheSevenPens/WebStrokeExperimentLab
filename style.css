@@ -4,10 +4,69 @@
     box-sizing: border-box;
 }
 
+/* A column: the toolbar takes what it needs, and everything below fills the rest.
+   The canvas is sized from this layout rather than from arithmetic on the window, so
+   a toolbar that wraps to another row shortens the canvas instead of pushing its
+   bottom edge off the screen. */
+html {
+    height: 100%;
+}
+
 body {
     margin: 0;
     padding: 0;
     overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#main {
+    flex: 1 1 auto;
+    display: flex;
+    /* Without this a flex item refuses to shrink below its content, and the panel's
+       longest dropdown would set a floor under the whole row. */
+    min-height: 0;
+    min-width: 0;
+}
+
+/* A fifth of the width, and never so little that the dropdowns inside it stop being
+   usable: at 20% of a phone this column would be 75px wide. */
+#stroke-panel {
+    flex: 0 0 20%;
+    min-width: 170px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    background: #f7f7f7;
+    border-right: 1px solid #ccc;
+    overflow-y: auto;
+}
+
+/* Down the column each control is its label above its own full-width input, so the
+   names line up and the dropdowns are the same size whatever is in them. */
+#stroke-panel .control-item {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
+    white-space: normal;
+}
+
+#stroke-panel select {
+    width: 100%;
+}
+
+/* Except the checkboxes, which read as one line. */
+#stroke-panel label.control-item {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+}
+
+#stroke-panel label.control-item input {
+    flex: none;
 }
 
 #toolbar {
@@ -158,6 +217,15 @@ label.control-item:has(input:disabled) {
 
 #canvas {
     display: block;
+    /* Whatever the panel leaves, in both directions.
+       A canvas is a replaced element: with no CSS size it lays out at the size of its
+       width and height attributes, which are the backing store this app sizes *from*
+       the layout. Stating both here breaks that circle -- the stylesheet decides the
+       box, and the backing store follows it. A flex-basis of zero rather than auto for
+       the same reason: auto would start from the attribute width again. */
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
     touch-action: none;        /* prevent browser gestures (pan, zoom) on the canvas */
     overscroll-behavior: none; /* prevent pull-to-refresh and similar OS gestures */
 }

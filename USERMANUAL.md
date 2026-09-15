@@ -16,11 +16,16 @@ It is **not** a drawing app — there are no colors, brushes or layers. The stro
 4. Use the **Mode** dropdown to switch which pen property drives the brush (see [Testing modes](#testing-modes) below).
 5. Press **Clear**, or **Delete** / **Backspace**, to clear the canvas.
 
-## Toolbar reference
+## Controls reference
 
-The toolbar has two rows: what you set on top, and what the pen reports underneath. The readouts
-change many times a second while you draw, so keeping them on their own row stops the controls
-moving under the pointer as values change width.
+The window is in three parts. **Across the top**: Clear, Export, About, and under them the
+readouts. **Down the left**, beside the canvas: the settings that decide how a stroke is drawn --
+Mode, Stroke, Edge, Smoothing, Fixed pressure and Use all pen points. **The rest** is the canvas.
+
+The settings sit beside the ink rather than above it because that is how they are used: read down
+a list, changed one at a time, compared between strokes. The readouts are on their own row for the
+opposite reason -- they change many times a second, and anything next to them would move as the
+values change width.
 
 | Control | What it shows / does |
 | --- | --- |

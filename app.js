@@ -16,7 +16,6 @@
 // ============================================================
 
 const canvas  = document.getElementById('canvas');
-const toolbar = document.getElementById('toolbar');
 const modeSelect = document.getElementById('mode');
 const strokeSelect = document.getElementById('stroke');
 const allPointsCheck = document.getElementById('allpoints');
@@ -196,13 +195,17 @@ function backingSize(cssWidth, cssHeight) {
     };
 }
 
-function resizeCanvas() {
-    const cssWidth = Math.max(1, window.innerWidth);
-    const cssHeight = Math.max(1, window.innerHeight - toolbar.offsetHeight);
+// The canvas's own layout box, in CSS pixels. The stylesheet decides it -- the
+// canvas is what is left of a flex row after the settings column, inside what is left
+// of the window after the toolbar -- so this reads the answer rather than working it
+// out again, which is how the two could disagree.
+function layoutSize() {
+    const box = canvas.getBoundingClientRect();
+    return { cssWidth: Math.max(1, box.width), cssHeight: Math.max(1, box.height) };
+}
 
-    // Layout size, in CSS pixels.
-    canvas.style.width = cssWidth + 'px';
-    canvas.style.height = cssHeight + 'px';
+function resizeCanvas() {
+    const { cssWidth, cssHeight } = layoutSize();
 
     const { width, height } = backingSize(cssWidth, cssHeight);
     if (width === applied.width && height === applied.height &&
@@ -1348,8 +1351,9 @@ window.addEventListener('resize', scheduleResize);
 // factor — which the window resize event alone can miss.
 const resizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
-        // Only the canvas has a device-pixel box worth keeping. The toolbar is observed
-        // for its height alone, and its box would be the wrong one to size ink by.
+        // The canvas is the only thing observed, and the only thing whose device-pixel
+        // box means anything here. Guarded anyway, so observing something else later
+        // cannot quietly start sizing the ink by the wrong box.
         if (entry.target !== canvas) continue;
 
         const box = entry.devicePixelContentBoxSize?.[0];
@@ -1364,12 +1368,6 @@ try {
     // devicePixelRatio in backingSize().
     resizeObserver.observe(canvas);
 }
-
-// The canvas takes whatever height the window has left after the toolbar, so a toolbar
-// that changes height has to resize it. Nothing else notices: the canvas keeps the CSS
-// height it was last given, so its own box does not change and neither does the
-// window's, and the bottom of the canvas ends up below the bottom of the screen.
-resizeObserver.observe(toolbar);
 
 // Delete or Backspace clears the canvas -- unless the key is meant for something else.
 //

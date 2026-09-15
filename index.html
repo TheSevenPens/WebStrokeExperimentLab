@@ -18,43 +18,6 @@
 <div id="toolbar">
     <div class="toolbar-row" id="controls-row">
         <button onclick="clearCanvas()">Clear</button>
-        <span class="control-item">Mode:
-            <select id="mode">
-                <option value="pressure-size">Pressure to Size</option>
-                <option value="azimuth-rotation">Tilt Azimuth to Brush rotation</option>
-                <option value="altitude-size">Tilt Altitude to Brush size</option>
-                <option value="twist-rotation">Twist to Brush rotation</option>
-                <option value="pointer-only">Pointer only (no drawing)</option>
-            </select>
-        </span>
-        <span class="control-item" id="stroke-item">Stroke:
-            <select id="stroke" title="How the ink between two pen samples is drawn. Pressure to Size only.">
-                <option value="stepped">Stepped width</option>
-                <option value="taper-straight">Taper (straight)</option>
-                <option value="taper-curved" selected>Taper (curved)</option>
-            </select>
-        </span>
-        <span class="control-item" id="edge-item">Edge:
-            <select id="edge" title="Hard shows exactly what the pen reported, every wobble included. Soft feathers the boundary the way a painting application's brush does, which hides about a pixel of it.">
-                <option value="hard" selected>Hard</option>
-                <option value="soft">Soft</option>
-            </select>
-        </span>
-        <span class="control-item" id="smoothing-item">Smoothing:
-            <select id="smoothing" title="Filters the positions before they are drawn, the way every web drawing library does by default. Off shows what the pen reported. Light matches perfect-freehand's default, Heavy matches atrament's. Smoothing trades accuracy for calm: the ink follows a little behind the pen.">
-                <option value="off" selected>Off</option>
-                <option value="light">Light</option>
-                <option value="heavy">Heavy</option>
-            </select>
-        </span>
-        <label class="control-item" id="fixedpressure-item"
-               title="Draw as though the pen were pressed at a constant half pressure. The Pressure readout still shows what the pen actually reports; only the stroke ignores it. Use this to see what a stroke looks like with pressure taken out of the picture.">
-            <input type="checkbox" id="fixedpressure"> Fixed pressure
-        </label>
-        <label class="control-item" id="allpoints-item"
-               title="Draw from every position the pen reported, not just the one per screen refresh the browser hands over on its own. On by default here; untick it to see what an ordinary web page draws, and watch the two Points/s numbers separate.">
-            <input type="checkbox" id="allpoints" checked> Use all pen points
-        </label>
         <select id="export">
             <option value="" disabled selected>Export…</option>
             <option value="png">Save as PNG</option>
@@ -102,7 +65,53 @@
     </form>
 </dialog>
 
-<canvas id="canvas"></canvas>
+<!-- The drawing surface and the settings that decide what it draws, side by side.
+     The settings belong next to the ink rather than above it: they are read down a
+     list and changed one at a time between strokes, which a row of dropdowns across
+     the top of the window does not invite. -->
+<div id="main">
+    <div id="stroke-panel">
+        <span class="control-item">Mode:
+            <select id="mode">
+                <option value="pressure-size">Pressure to Size</option>
+                <option value="azimuth-rotation">Tilt Azimuth to Brush rotation</option>
+                <option value="altitude-size">Tilt Altitude to Brush size</option>
+                <option value="twist-rotation">Twist to Brush rotation</option>
+                <option value="pointer-only">Pointer only (no drawing)</option>
+            </select>
+        </span>
+        <span class="control-item" id="stroke-item">Stroke:
+            <select id="stroke" title="How the ink between two pen samples is drawn. Pressure to Size only.">
+                <option value="stepped">Stepped width</option>
+                <option value="taper-straight">Taper (straight)</option>
+                <option value="taper-curved" selected>Taper (curved)</option>
+            </select>
+        </span>
+        <span class="control-item" id="edge-item">Edge:
+            <select id="edge" title="Hard shows exactly what the pen reported, every wobble included. Soft feathers the boundary the way a painting application's brush does, which hides about a pixel of it.">
+                <option value="hard" selected>Hard</option>
+                <option value="soft">Soft</option>
+            </select>
+        </span>
+        <span class="control-item" id="smoothing-item">Smoothing:
+            <select id="smoothing" title="Filters the positions before they are drawn, the way every web drawing library does by default. Off shows what the pen reported. Light matches perfect-freehand's default, Heavy matches atrament's. Smoothing trades accuracy for calm: the ink follows a little behind the pen.">
+                <option value="off" selected>Off</option>
+                <option value="light">Light</option>
+                <option value="heavy">Heavy</option>
+            </select>
+        </span>
+        <label class="control-item" id="fixedpressure-item"
+               title="Draw as though the pen were pressed at a constant half pressure. The Pressure readout still shows what the pen actually reports; only the stroke ignores it. Use this to see what a stroke looks like with pressure taken out of the picture.">
+            <input type="checkbox" id="fixedpressure"> Fixed pressure
+        </label>
+        <label class="control-item" id="allpoints-item"
+               title="Draw from every position the pen reported, not just the one per screen refresh the browser hands over on its own. On by default here; untick it to see what an ordinary web page draws, and watch the two Points/s numbers separate.">
+            <input type="checkbox" id="allpoints" checked> Use all pen points
+        </label>
+    </div>
+
+    <canvas id="canvas"></canvas>
+</div>
 <svg id="cursor-indicator" hidden width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
     <g stroke="#d12d2d" stroke-width="2" fill="none">
         <line x1="0"  y1="16" x2="12" y2="16"/>
