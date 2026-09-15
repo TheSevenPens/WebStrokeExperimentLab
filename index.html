@@ -2,10 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- Without this a phone lays the page out at 980 CSS px and scales the result
+         down to fit, so the 13px readouts arrive at about 5px. No user-scalable=no:
+         pinch zoom is how you read a small readout. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SevenPens Web Stroke Experiment Lab</title>
     <link rel="stylesheet" href="style.css"/>
 </head>
-<body oncontextmenu="return false;">
+<body>
 
 <!-- Two rows: what you set on top, what the pen reports underneath. The readouts
      change many times a second while drawing and the controls do not, so keeping

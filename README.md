@@ -26,7 +26,7 @@ Every stage is a control, so any two of them can be compared on the same hand mo
 | **Edge** | `Hard` / `Soft` |
 | **Smoothing** | `Off` / `Light` / `Heavy` — streamlining, at perfect-freehand's and atrament's defaults |
 | **Fixed pressure** | hold the width constant, to take pressure out of a question |
-| **Use all pen points** | draw from every reported position rather than one per screen refresh |
+| **Use all pen points** | draw from every reported position rather than one per screen refresh, in every drawing mode |
 
 ## What has been established here
 
@@ -44,3 +44,5 @@ Open `index.html` in a browser. No build step, no dependencies, no webserver nee
 ## Scope
 
 The opposite of the tester's. A control earns its place here if it makes a stage of drawing comparable against another; complexity is the point rather than the cost. Anything learned that the tester should benefit from goes there as fixed behaviour with no setting attached.
+
+Traffic runs the other way too. Both apps grew from the same source, so a defect found in one is usually in the other: the fourteen from the tester's review ([TheSevenPens/WebTabletTesterBasic#9](https://github.com/TheSevenPens/WebTabletTesterBasic/issues/9)) were all here as well, and are fixed. A fix crosses over where it is about the pen being reported honestly; a *setting* does not cross over in either direction.

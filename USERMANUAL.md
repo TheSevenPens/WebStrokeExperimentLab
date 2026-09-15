@@ -6,7 +6,7 @@ A simple web app for verifying that your drawing tablet and its pen are working,
 - You're comparing two tablets or two drivers.
 - You're a developer wanting to see what the Pointer Events API actually delivers on your hardware.
 
-It is **not** a drawing app — there are no colors, brushes, layers, or save/export. The strokes you make are only meant to show that the pen is reporting what you'd expect.
+It is **not** a drawing app — there are no colors, brushes or layers. The strokes you make are only meant to show that the pen is reporting what you'd expect.
 
 ## Quick start
 
@@ -35,7 +35,7 @@ moving under the pointer as values change width.
 | **Type** | `pen`, `mouse`, or `touch` — what the browser thinks the input device is. |
 | **X, Y** | Where the pointer is, in CSS pixels, relative to the window. Always to two decimals — see [Position precision](#position-precision). |
 | **Precision** | Which grid those positions land on: `CSS pixels`, `screen pixels`, or `sub-pixel` — see [Position precision](#position-precision). |
-| **Pressure** | 0.000 – 1.000. Mouse always reports `0.5`. |
+| **Pressure** | 0.000 – 1.000. A mouse reports `0.5` while a button is held and `0` otherwise. |
 | **Tilt X** | -90° to 90°. Left/right tilt of the pen. |
 | **Tilt Y** | -90° to 90°. Forward/back tilt of the pen. |
 | **Azimuth** | 0° – 360°. Compass direction the pen is leaning. |
@@ -52,7 +52,7 @@ If a value stays at `0` or `---` while you draw, your pen or driver isn't report
 
 The **Mode** dropdown selects which pen property drives the brush. Each mode is meant to isolate one input so a behavior problem can be narrowed down quickly.
 
-- **Pressure to Size** — Circular brush. Stroke width scales with pressure. *Use this to verify pressure sensitivity is working.* Mouse events synthesize a pressure of 0.5, so a mouse always draws a mid-width stroke.
+- **Pressure to Size** — Circular brush. Stroke width scales with pressure. *Use this to verify pressure sensitivity is working.* A mouse reports 0.5 while a button is held, so it draws a mid-width stroke.
 - **Tilt Azimuth to Brush rotation** — Fixed elongated oval brush, rotated to match the pen's compass-direction tilt. *Use this to verify azimuth reporting.* The oval should rotate as you lean the pen in different directions.
 - **Tilt Altitude to Brush size** — Oval brush whose long axis grows as the pen tilts away from upright. Upright pen → small circle; pen flat on the tablet → very elongated oval. Rotation comes from azimuth, so the oval stretches in the direction the pen is leaning. *Use this to verify altitude reporting.*
 - **Twist to Brush rotation** — Fixed elongated oval brush, rotated by the pen's barrel twist. *Use this to verify twist reporting* — only meaningful on pens that report twist (e.g. some Wacom Art Pens). Most pens report twist as `0`.
@@ -269,7 +269,10 @@ rendering, since stepped, straight and curved all trace the same snapped path.
 - **Apple Pencil twist** — Apple Pencil does not report barrel rotation; **Twist** will stay at `0°`.
 - **Most pens, no twist** — Twist requires hardware support (e.g. Wacom Art Pen). Most styli will report `0°`.
 - **Eraser detection is driver-dependent** — Pens with a physical eraser end (e.g. many Wacom pens) will set the eraser bit on Windows Chrome/Edge/Firefox with Windows Ink enabled. Apple Pencil has no eraser end. Some pens/drivers map the eraser to a normal tip contact plus a configurable button, so the **Eraser** readout stays `no` even when the eraser is touching the tablet.
-- **Mouse / touch values** — Mouse always reports pressure `0.5` and zero tilt/azimuth/altitude/twist. Touch typically reports no pressure or tilt either. These are not bugs in the tester — they reflect what the browser delivers.
+- **Mouse / touch values** — A mouse reports pressure `0.5` while a button is held and `0` otherwise, with zero tilt and twist and an altitude of 90°. Touch typically reports no pressure or tilt either. These are not bugs — they reflect what the browser delivers.
+- **Zero is a reading, not an absence.** A tilt or twist of `0` can mean the pen is upright and untwisted just as easily as it can mean the property is unsupported. Move the pen and watch whether the number changes; that is what distinguishes the two.
+- **Azimuth and altitude on older browsers** — Safari only added these in **18.2**. Where they are missing they are worked out from Tilt X and Tilt Y, which every implementation reports, so the two tilt modes keep working and the numbers stay meaningful.
+- **A second touch while drawing** — resting a palm on a display tablet, or a second finger, does not join or end the stroke in progress. The stroke belongs to the pointer that started it, and so do the readouts until it ends.
 
 ## Privacy
 
